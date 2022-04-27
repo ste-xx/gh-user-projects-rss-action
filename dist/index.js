@@ -49,7 +49,8 @@ const fetchData = (input) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield client.postJson('https://api.github.com/graphql', {
         query
     }, {
-        authorization: `Bearer ${input.token}`
+        authorization: `Bearer ${input.token}`,
+        'user-agent': 'node.js'
     });
     const result = (_b = (_a = response.result) === null || _a === void 0 ? void 0 : _a.data) !== null && _b !== void 0 ? _b : {};
     return Object.fromEntries(Object.entries(result).flatMap(([username, entry]) => entry.edges.flatMap(e => e.node.repositories.edges.map(({ node: { id, name, description } }) => [

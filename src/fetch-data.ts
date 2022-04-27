@@ -62,7 +62,8 @@ export const fetchData = async (input: Input): Promise<FeedMap> => {
       query
     },
     {
-      authorization: `Bearer ${input.token}`
+      authorization: `Bearer ${input.token}`,
+      'user-agent': 'node.js'
     }
   )
   const result = response.result?.data ?? {}
