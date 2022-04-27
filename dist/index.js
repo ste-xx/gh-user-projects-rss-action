@@ -1,6 +1,73 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 966:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.fetchData = void 0;
+const http_client_1 = __nccwpck_require__(925);
+const createQueryPartial = (user) => `
+  ${user}: search(query: "${user}", type: USER, first: 1) {
+    edges {
+      node {
+        ... on Organization {
+          repositories(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) {
+            __typename
+            edges {
+              node {
+                id
+                name
+                description
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+const fetchData = (input) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    const query = `
+      query {
+        ${input.names.map(name => createQueryPartial(name)).join('\n')}
+      }
+    `;
+    const client = new http_client_1.HttpClient();
+    const response = yield client.postJson('https://api.github.com/graphql', {
+        query
+    }, {
+        authorization: `Bearer ${input.token}`
+    });
+    const result = (_b = (_a = response.result) === null || _a === void 0 ? void 0 : _a.data) !== null && _b !== void 0 ? _b : {};
+    return Object.fromEntries(Object.entries(result).flatMap(([username, entry]) => entry.edges.flatMap(e => e.node.repositories.edges.map(({ node: { id, name, description } }) => [
+        id,
+        {
+            id,
+            url: `https://github.com/${username}/${name}`,
+            created: new Date().getTime(),
+            title: `${username}: ${name}`,
+            content_text: description !== null && description !== void 0 ? description : ''
+        }
+    ]))));
+});
+exports.fetchData = fetchData;
+
+
+/***/ }),
+
 /***/ 109:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -36,16 +103,35 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(186));
-const wait_1 = __nccwpck_require__(817);
+const fetch_data_1 = __nccwpck_require__(966);
+const process_1 = __nccwpck_require__(647);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const ms = core.getInput('milliseconds');
-            core.debug(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
-            core.debug(new Date().toTimeString());
-            yield (0, wait_1.wait)(parseInt(ms, 10));
-            core.debug(new Date().toTimeString());
-            core.setOutput('time', new Date().toTimeString());
+            if (!process.env.GITHUB_TOKEN) {
+                throw new Error('Missing Github Token');
+            }
+            const oldState = JSON.parse(core.getInput('state'));
+            const fetchedState = yield (0, fetch_data_1.fetchData)({
+                token: process.env.GITHUB_TOKEN,
+                names: JSON.parse(core.getInput('names'))
+            });
+            const newState = (0, process_1.removeOldEntries)(Object.assign(Object.assign({}, oldState), fetchedState), parseInt(core.getInput('retention'), 10));
+            const items = Object.entries(newState).map(([, item]) => item);
+            items.sort((a, b) => a.created - b.created);
+            const jsonFeed = {
+                version: 'https://jsonfeed.org/version/1',
+                title: core.getInput('title'),
+                feed_url: core.getInput('feedUrl'),
+                items: items.reverse().map(({ id, title, url, content_text }) => ({
+                    id,
+                    title,
+                    content_text,
+                    url
+                }))
+            };
+            core.setOutput('state', JSON.stringify(newState, null, 2));
+            core.setOutput('jsonFeed', jsonFeed);
         }
         catch (error) {
             if (error instanceof Error)
@@ -58,33 +144,19 @@ run();
 
 /***/ }),
 
-/***/ 817:
-/***/ (function(__unused_webpack_module, exports) {
+/***/ 647:
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = void 0;
-function wait(milliseconds) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise(resolve => {
-            if (isNaN(milliseconds)) {
-                throw new Error('milliseconds not a number');
-            }
-            setTimeout(() => resolve('done!'), milliseconds);
-        });
-    });
-}
-exports.wait = wait;
+exports.removeOldEntries = void 0;
+const removeOldEntries = (map, retention) => {
+    const DAY_IN_MS = 86400000;
+    const deleteAfter = DAY_IN_MS * retention;
+    return Object.fromEntries(Object.entries(map).filter(([, { created = 0 }]) => new Date().getTime() - created < deleteAfter));
+};
+exports.removeOldEntries = removeOldEntries;
 
 
 /***/ }),

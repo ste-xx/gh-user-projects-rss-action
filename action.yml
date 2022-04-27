@@ -1,11 +1,29 @@
-name: 'Your name here'
+name: 'New Github User Projects as Rss feeds'
 description: 'Provide a description here'
-author: 'Your name or organization here'
+author: 'Stefan Breitenstein'
 inputs:
-  milliseconds: # change this
+  state:
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: 'state as json'
+  feedUrl:
+    required: true
+    description: 'url where the feed can be found'
+  names:
+    required: true
+    description: 'list of names'
+  retention:
+    required: true
+    description: 'how long should an entry be retained'
+    default: '200'
+  title:
+    required: true
+    description: 'title for the json feed'
+    default: 'GH-User Projects'
+outputs:
+  state:
+    description: 'State for the action. Needs to be added in the next run'
+  jsonFeed:
+    description: 'created jsonFeed from the previous state and the new fetched data'
 runs:
   using: 'node16'
   main: 'dist/index.js'

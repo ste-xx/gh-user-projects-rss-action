@@ -21,4 +21,13 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./
         with:
-          milliseconds: 1000
+          state: |
+            {
+            }
+          names: |
+            [
+              ""
+            ]
+          feedUrl: https://unknown
+          topic: r/programming
+          id: reddit
