@@ -5,6 +5,7 @@ inputs:
   state:
     required: true
     description: 'state as json'
+    default: '{}'
   feedUrl:
     required: true
     description: 'url where the feed can be found'
