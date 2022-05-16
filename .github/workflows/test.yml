@@ -29,5 +29,4 @@ jobs:
               ""
             ]
           feedUrl: https://unknown
-          topic: r/programming
-          id: reddit
+          id: githubusers
